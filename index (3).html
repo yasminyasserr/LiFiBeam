@@ -1,0 +1,420 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0b0d12">
+<title>LiFiBeam</title>
+<style>
+:root{
+  --bg:#0b0d12; --panel:#141822; --line:#252b3a; --text:#e9edf5; --muted:#8c95a9;
+  --beam:#ffd36b; --start:#ffd36b; --data:#9db8ff; --stop:#5fe0c8; --warn:#ff9b7a;
+  --sans:"Avenir Next","Segoe UI",system-ui,-apple-system,sans-serif;
+  --mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+}
+*{box-sizing:border-box}
+html{color-scheme:dark;-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--bg);color:var(--text);font-family:var(--sans);line-height:1.45;
+  padding:env(safe-area-inset-top,0) 16px calc(env(safe-area-inset-bottom,0) + 24px)}
+main{max-width:520px;margin:0 auto}
+header{display:flex;align-items:center;gap:12px;padding:18px 0 8px}
+header svg{flex:none}
+h1{font-size:1.55rem;letter-spacing:-.02em;margin:0;font-weight:700}
+header p{margin:0;color:var(--muted);font-size:.88rem}
+.tabs{display:flex;gap:4px;margin:12px 0 16px;border-bottom:1px solid var(--line)}
+.tabs button{flex:1;background:none;border:0;color:var(--muted);font:inherit;font-weight:600;padding:12px 0;
+  border-bottom:2px solid transparent;margin-bottom:-1px;cursor:pointer}
+.tabs button[aria-selected=true]{color:var(--text);border-color:var(--beam)}
+button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid var(--data);outline-offset:2px}
+.panel{display:none}.panel.show{display:block}
+
+.beacon-wrap{display:flex;flex-direction:column;align-items:center;gap:14px;padding:12px 0 18px}
+.beacon{width:140px;height:140px;border-radius:50%;display:grid;place-items:center;font-weight:700;
+  font-size:1.35rem;transition:background .04s,box-shadow .04s,color .04s;border:2px dashed var(--line);color:var(--muted);background:var(--panel)}
+.beacon.on{background:radial-gradient(circle,#fffbe8 0,var(--beam) 70%);color:#2a2000;border:2px solid #fff3c4;
+  box-shadow:0 0 28px 8px rgba(255,211,107,.55),0 0 90px 30px rgba(255,211,107,.25)}
+.beacon.off{background:#070910;border:2px solid #2b3552;color:#6c7aa3}
+.status{min-height:2.2rem;padding:6px 16px;border-radius:99px;background:var(--panel);border:1px solid var(--line);
+  font-size:.92rem;font-weight:600;color:var(--muted)}
+.status.warn{color:var(--warn);border-color:#5a3328}
+.status.busy{color:var(--beam);border-color:#5a4a1e}
+.status.ok{color:var(--stop);border-color:#1f4d45}
+
+label,.lbl{display:block;font-size:.88rem;font-weight:600;margin:16px 0 6px}
+input[type=text],select{width:100%;background:var(--panel);color:var(--text);border:1px solid var(--line);
+  border-radius:10px;padding:13px 14px;font:inherit;font-size:1rem}
+.chips{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
+.chip{background:var(--panel);border:1px solid var(--line);color:var(--text);border-radius:99px;padding:8px 14px;
+  font:inherit;font-size:.88rem;cursor:pointer}
+.chip:active{background:var(--line)}
+
+.legend{display:flex;gap:14px;flex-wrap:wrap;color:var(--muted);font-size:.78rem;margin:0 0 8px}
+.legend i{display:inline-block;width:9px;height:9px;border-radius:3px;margin-right:5px}
+.stream{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px;max-height:190px;overflow:auto;
+  font-family:var(--mono);font-size:.95rem;min-height:56px}
+.stream:empty::before{content:"Type a message to see its bits.";color:var(--muted);font-family:var(--sans);font-size:.88rem}
+.chr{display:inline-flex;flex-direction:column;align-items:center;margin:0 6px 8px 0}
+.chr b{font-size:.7rem;color:var(--muted);font-weight:600;font-family:var(--sans);margin-bottom:2px}
+.chr span.bits{display:flex;gap:2px}
+.bit{width:15px;text-align:center;border-radius:3px;padding:1px 0;opacity:.85}
+.bit.s{color:#2a2000;background:var(--start)}
+.bit.d{color:var(--data);background:#1b2540}
+.bit.p{color:#06251f;background:var(--stop)}
+.bit.done{opacity:.3}
+.bit.cur{opacity:1;outline:2px solid #fff;outline-offset:1px}
+
+.row{display:flex;justify-content:space-between;align-items:baseline}
+.row output{font-family:var(--mono);color:var(--beam);font-weight:700}
+input[type=range]{width:100%;accent-color:var(--beam);height:32px}
+.hint{color:var(--muted);font-size:.8rem;margin:4px 0 0}
+.go{width:100%;margin-top:20px;padding:16px;border:0;border-radius:12px;background:var(--beam);color:#2a2000;
+  font:inherit;font-weight:700;font-size:1.05rem;cursor:pointer}
+.go.stop{background:#ff7a6b;color:#2b0a06}
+.tests{display:flex;gap:10px;margin-top:10px}
+.tests button{flex:1;padding:12px;border-radius:12px;border:1px solid var(--line);background:var(--panel);
+  color:var(--text);font:inherit;font-weight:600;cursor:pointer}
+button:disabled{opacity:.5}
+#note{min-height:1.3rem;color:var(--muted);font-size:.82rem;margin-top:12px}
+
+.ov{position:fixed;inset:0;z-index:50;display:none;touch-action:manipulation}
+.ov.show{display:block}.ov.on{background:#fff}.ov.off{background:#000}
+
+.card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px 16px;margin-top:14px}
+.card h2{font-size:1rem;margin:0 0 8px}
+.card ul{margin:0;padding-left:18px;color:var(--text);font-size:.9rem}
+.card li{margin:4px 0}
+.card p{margin:6px 0;font-size:.88rem;color:var(--muted)}
+.codehead{display:flex;justify-content:space-between;align-items:center;margin-top:6px}
+.codehead h2{margin:0;font-size:1rem}
+.copy{background:var(--panel);border:1px solid var(--line);color:var(--text);border-radius:10px;padding:8px 14px;font:inherit;font-weight:600;cursor:pointer}
+pre{background:#080a0f;border:1px solid var(--line);border-radius:12px;padding:14px;overflow:auto;margin:10px 0 0;
+  font-family:var(--mono);font-size:.78rem;line-height:1.5;tab-size:2}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <svg width="40" height="40" viewBox="0 0 40 40" aria-hidden="true"><circle cx="11" cy="20" r="6" fill="#ffd36b"/><path d="M20 12l16-6v28l-16-6z" fill="#ffd36b" opacity=".35"/><path d="M20 15l12-4v18l-12-4z" fill="#ffd36b" opacity=".6"/></svg>
+    <div><h1>LiFiBeam</h1><p>Send text as pulses of light</p></div>
+  </header>
+
+  <div class="tabs" role="tablist">
+    <button role="tab" id="t1" aria-selected="true" aria-controls="p1">Transmitter</button>
+    <button role="tab" id="t2" aria-selected="false" aria-controls="p2">Arduino receiver</button>
+  </div>
+
+  <section class="panel show" id="p1" role="tabpanel" aria-labelledby="t1">
+    <div class="beacon-wrap">
+      <div class="beacon" id="beacon" aria-live="polite">IDLE</div>
+      <div class="status" id="status">Ready</div>
+    </div>
+
+    <label for="msg">Message</label>
+    <input type="text" id="msg" maxlength="32" placeholder="Type a message (ASCII)" autocomplete="off" autocapitalize="off" spellcheck="false">
+    <div class="chips" id="presets">
+      <button class="chip" type="button">HELLO</button>
+      <button class="chip" type="button">LiFi</button>
+      <button class="chip" type="button">SOS</button>
+      <button class="chip" type="button">Hi 123</button>
+    </div>
+
+    <div class="lbl">Bitstream preview</div>
+    <div class="legend"><span><i style="background:var(--start)"></i>start (1)</span><span><i style="background:#1b2540;border:1px solid var(--data)"></i>8 data bits, MSB first</span><span><i style="background:var(--stop)"></i>stop (0)</span></div>
+    <div class="stream" id="stream"></div>
+
+    <div class="row" style="margin-top:16px"><label for="ms" style="margin:0">Bit duration</label><output id="msOut">100 ms</output></div>
+    <input type="range" id="ms" min="20" max="500" step="10" value="100">
+    <p class="hint" id="est"></p>
+
+    <label for="mode">Output mode</label>
+    <select id="mode">
+      <option value="auto">Auto (torch, else screen)</option>
+      <option value="torch">Camera torch only</option>
+      <option value="screen">Screen flash only</option>
+      <option value="both">Torch and screen flash</option>
+    </select>
+
+    <button class="go" id="go" type="button">Send message</button>
+    <div class="tests">
+      <button type="button" id="testTorch">Test Torch</button>
+      <button type="button" id="testScreen">Test Screen</button>
+    </div>
+    <div id="note"></div>
+  </section>
+
+  <section class="panel" id="p2" role="tabpanel" aria-labelledby="t2">
+    <div class="card">
+      <h2>How the frame works</h2>
+      <p>Light off means idle. Each character is sent as one ON start bit, 8 ASCII bits (MSB first, ON = 1), then one OFF stop bit. The receiver waits for the light to turn on, then samples each bit at its midpoint.</p>
+    </div>
+    <div class="card">
+      <h2>Wiring</h2>
+      <ul>
+        <li>LDR module: VCC to 5V, GND to GND, DO to pin 8</li>
+        <li>LCD 16x2: RS to 12, E to 11, D4 to 5, D5 to 4, D6 to 3, D7 to 2</li>
+        <li>LCD: VSS and RW to GND, VDD and LED+ to 5V, LED&minus; to GND, V0 to a 10k pot middle pin</li>
+        <li>Point the LDR at the phone’s torch or screen, a few centimetres away, and shade it from room light</li>
+        <li>Most LDR modules output LOW in bright light. If your characters come out garbled, set LIGHT_LEVEL to HIGH</li>
+      </ul>
+    </div>
+    <div class="codehead"><h2>receiver.ino</h2><button class="copy" id="copy" type="button">Copy code</button></div>
+    <p class="hint">BIT_MS follows the slider on the Transmitter tab.</p>
+    <pre id="code"></pre>
+  </section>
+</main>
+<div class="ov" id="ov" aria-hidden="true"></div>
+<video id="cam" playsinline muted autoplay style="position:fixed;width:1px;height:1px;opacity:0;pointer-events:none"></video>
+
+<script>
+(function(){
+"use strict";
+var $=function(s){return document.querySelector(s)};
+var msg=$("#msg"),ms=$("#ms"),mode=$("#mode"),go=$("#go"),ov=$("#ov");
+var st={sending:false,stream:null,track:null,busy:false};
+
+/* ---------- encoding ---------- */
+function frame(ch){
+  var c=ch.charCodeAt(0)&127,b=[1],i;
+  for(i=7;i>=0;i--)b.push((c>>i)&1);
+  b.push(0);
+  return b;
+}
+function clean(v){return v.replace(/[^\x20-\x7E]/g,"")}
+
+function renderStream(){
+  var txt=msg.value,out="",n=0;
+  Array.prototype.forEach.call(txt,function(ch){
+    var bits=frame(ch),label=ch===" "?"&nbsp;":ch.replace(/&/g,"&amp;").replace(/</g,"&lt;");
+    out+='<span class="chr"><b>'+label+'</b><span class="bits">';
+    bits.forEach(function(v,k){
+      var cls=k===0?"s":(k===9?"p":"d");
+      out+='<span class="bit '+cls+'" data-i="'+(n++)+'">'+v+'</span>';
+    });
+    out+="</span></span>";
+  });
+  $("#stream").innerHTML=out;
+  updateEst();
+}
+function updateEst(){
+  var n=msg.value.length*10,t=n*ms.value/1000;
+  $("#est").textContent=n?n+" bits, about "+t.toFixed(1)+" s to send":"Longer bit durations are more reliable, especially with a phone torch.";
+  $("#msOut").textContent=ms.value+" ms";
+  renderCode();
+}
+function mark(i){
+  var all=$("#stream").querySelectorAll(".bit");
+  if(i>0&&all[i-1]){all[i-1].classList.remove("cur");all[i-1].classList.add("done")}
+  if(all[i]){all[i].classList.add("cur");all[i].scrollIntoView({block:"nearest",inline:"nearest"})}
+}
+function clearMarks(){
+  Array.prototype.forEach.call($("#stream").querySelectorAll(".bit"),function(b){b.classList.remove("cur","done")});
+}
+
+/* ---------- status / beacon ---------- */
+function status(kind){
+  var el=$("#status"),map={
+    ready:["Ready",""],empty:["No data to send!","warn"],
+    sending:["Sending Data...","busy"],sent:["Data sent!","ok"],stopped:["Stopped.",""]};
+  el.textContent=map[kind][0];el.className="status "+map[kind][1];
+}
+function beacon(s){
+  var b=$("#beacon");
+  b.className="beacon "+(s==="idle"?"":s);
+  b.textContent=s==="on"?"1 (ON)":s==="off"?"0 (OFF)":"IDLE";
+}
+function note(t){$("#note").textContent=t||""}
+
+/* ---------- optical output ---------- */
+var out={torch:false,screen:false};
+function setLight(on){
+  beacon(on?"on":"off");
+  if(out.screen)ov.className="ov show "+(on?"on":"off");
+  if(out.torch&&st.track){
+    st.track.applyConstraints({advanced:[{torch:!!on}]}).catch(function(){});
+  }
+}
+var IOS=/iP(hone|ad|od)/.test(navigator.userAgent)||(navigator.platform==="MacIntel"&&navigator.maxTouchPoints>1);
+async function ensureTorch(){
+  if(st.track)return true;
+  var s=null;
+  try{
+    if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia)throw new Error("no getUserMedia");
+    s=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:"environment"}},audio:false});
+    var t=s.getVideoTracks()[0],caps=t.getCapabilities?t.getCapabilities():{};
+    /* Safari on iOS doesn't list torch in getCapabilities(), so probe it directly there */
+    if(!caps.torch&&!IOS)throw new Error("no torch");
+    var v=$("#cam");v.srcObject=s;v.play().catch(function(){});
+    await t.applyConstraints({advanced:[{torch:true}]});
+    await t.applyConstraints({advanced:[{torch:false}]});
+    st.stream=s;st.track=t;return true;
+  }catch(e){
+    if(s)s.getTracks().forEach(function(x){x.stop()});
+    $("#cam").srcObject=null;
+    return false;
+  }
+}
+function releaseTorch(){
+  if(st.stream)st.stream.getTracks().forEach(function(t){t.stop()});
+  st.stream=null;st.track=null;$("#cam").srcObject=null;
+}
+async function resolveOutput(){
+  var m=mode.value;
+  out={torch:false,screen:false};
+  if(m==="screen"||m==="both")out.screen=true;
+  if(m!=="screen"){
+    out.torch=await ensureTorch();
+    if(out.torch&&IOS&&m==="auto"){out.screen=true;note("iPhone detected: flashing the torch and the screen together. Tap the screen to stop.")}
+    if(!out.torch){
+      out.screen=true;
+      note(location.protocol==="https:"||location.hostname==="localhost"
+        ?"Torch isn’t available on this device or was blocked, so the screen is flashing instead."
+        :"The torch needs HTTPS. Using screen flash instead.");
+    }
+  }
+  return out;
+}
+function endOutput(){
+  out.screen=false;ov.className="ov";
+  releaseTorch();
+}
+function wait(t){return new Promise(function(r){setTimeout(r,Math.max(0,t-performance.now()))})}
+
+/* ---------- sending ---------- */
+async function send(){
+  var txt=msg.value;
+  if(!txt){status("empty");return}
+  var bits=[];Array.prototype.forEach.call(txt,function(c){bits=bits.concat(frame(c))});
+  var d=+ms.value;
+  st.sending=true;st.busy=true;note("");
+  go.textContent="Stop";go.classList.add("stop");
+  $("#testTorch").disabled=$("#testScreen").disabled=true;
+  clearMarks();status("sending");
+  await resolveOutput();
+  if(out.screen)ov.className="ov show off";
+  if(out.screen)note("Screen flash is running. Tap the screen to stop.");
+  var t0=performance.now()+400,i;
+  for(i=0;i<bits.length&&st.sending;i++){
+    await wait(t0+i*d);
+    if(!st.sending)break;
+    mark(i);setLight(bits[i]);
+  }
+  var completed=st.sending;
+  if(completed)await wait(t0+bits.length*d);
+  setLight(0);
+  endOutput();
+  st.sending=false;st.busy=false;
+  go.textContent="Send message";go.classList.remove("stop");
+  $("#testTorch").disabled=$("#testScreen").disabled=false;
+  beacon("idle");clearMarks();
+  status(completed?"sent":"stopped");
+  if(completed)note("");
+}
+go.addEventListener("click",function(){if(st.sending)st.sending=false;else send()});
+ov.addEventListener("click",function(){st.sending=false});
+
+async function blinkTest(kind){
+  if(st.busy)return;
+  st.busy=true;note("");
+  var ok=true;
+  if(kind==="torch"){
+    ok=await ensureTorch();
+    if(!ok){note(location.protocol==="https:"||location.hostname==="localhost"
+      ?"No controllable torch found. Try Chrome on Android, and allow camera access."
+      :"The torch needs HTTPS (GitHub Pages provides it). Use Test Screen here.")}
+  }
+  if(ok){
+    out={torch:kind==="torch",screen:kind==="screen"};
+    for(var i=0;i<3;i++){setLight(1);await wait(performance.now()+300);setLight(0);await wait(performance.now()+300)}
+    endOutput();beacon("idle");
+    if(kind==="torch"&&IOS)note("Did the flash blink? If not, iOS blocked it: set Output Mode to Screen flash only and turn the brightness up.");
+  }
+  st.busy=false;
+}
+$("#testTorch").addEventListener("click",function(){blinkTest("torch")});
+$("#testScreen").addEventListener("click",function(){blinkTest("screen")});
+
+/* ---------- inputs ---------- */
+msg.addEventListener("input",function(){
+  var c=clean(msg.value);if(c!==msg.value)msg.value=c;
+  if(msg.value&&$("#status").classList.contains("warn"))status("ready");
+  renderStream();
+});
+ms.addEventListener("input",updateEst);
+$("#presets").addEventListener("click",function(e){
+  if(e.target.classList.contains("chip")){msg.value=e.target.textContent;status("ready");renderStream()}
+});
+
+/* ---------- tabs ---------- */
+["t1","t2"].forEach(function(id){
+  $("#"+id).addEventListener("click",function(){
+    ["t1","t2"].forEach(function(x){
+      var on=x===id;
+      $("#"+x).setAttribute("aria-selected",on);
+      $("#p"+x.slice(1)).classList.toggle("show",on);
+    });
+  });
+});
+
+/* ---------- Arduino reference ---------- */
+var CODE=[
+"// LiFiBeam receiver: LDR module on pin 8, 16x2 LCD",
+"// Frame: idle = light OFF, start bit = ON, 8 data bits (MSB first,",
+"// ON = 1), stop bit = OFF.",
+"#include <LiquidCrystal.h>",
+"",
+"const int LDR_PIN     = 8;",
+"const int BIT_MS      = {{BIT}};   // must match the transmitter slider",
+"const int LIGHT_LEVEL = LOW;   // most LDR modules read LOW in bright light;",
+"                               // change to HIGH if yours is inverted",
+"",
+"LiquidCrystal lcd(12, 11, 5, 4, 3, 2);  // RS, E, D4, D5, D6, D7",
+"int col = 0, row = 0;",
+"",
+"bool lit() { return digitalRead(LDR_PIN) == LIGHT_LEVEL; }",
+"",
+"void show(char c) {",
+"  if (c < 32 || c > 126) return;       // skip non-printable",
+"  if (col == 16) { col = 0; row++; }",
+"  if (row == 2)  { lcd.clear(); row = 0; }",
+"  lcd.setCursor(col++, row);",
+"  lcd.print(c);",
+"}",
+"",
+"void setup() {",
+"  pinMode(LDR_PIN, INPUT);",
+"  lcd.begin(16, 2);",
+"  lcd.print(\"LiFiBeam ready\");",
+"  delay(1500);",
+"  lcd.clear();",
+"}",
+"",
+"void loop() {",
+"  if (!lit()) return;                  // wait for a start bit",
+"  delay(BIT_MS + BIT_MS / 2);          // skip start bit, land mid first data bit",
+"  byte c = 0;",
+"  for (int i = 0; i < 8; i++) {",
+"    c = (c << 1) | (lit() ? 1 : 0);    // MSB first",
+"    delay(BIT_MS);",
+"  }",
+"  show((char)c);                       // now in the middle of the stop bit",
+"  while (lit());                       // wait for the light to go OFF",
+"}"
+].join("\n");
+function renderCode(){$("#code").textContent=CODE.replace("{{BIT}}",ms.value)}
+$("#copy").addEventListener("click",async function(){
+  var btn=this,txt=$("#code").textContent;
+  try{await navigator.clipboard.writeText(txt)}
+  catch(e){
+    var ta=document.createElement("textarea");ta.value=txt;ta.style.position="fixed";ta.style.opacity="0";
+    document.body.appendChild(ta);ta.select();try{document.execCommand("copy")}catch(_){}
+    document.body.removeChild(ta);
+  }
+  btn.textContent="Copied";setTimeout(function(){btn.textContent="Copy code"},1500);
+});
+
+renderStream();
+})();
+</script>
+</body>
+</html>
